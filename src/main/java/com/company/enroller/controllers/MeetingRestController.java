@@ -42,7 +42,6 @@ public class MeetingRestController {
         if (meeting == null) {
             return new ResponseEntity(HttpStatus.NOT_FOUND);
         }
-
         return new ResponseEntity(meeting, HttpStatus.OK);
     }
 
@@ -52,6 +51,9 @@ public class MeetingRestController {
         if (meeting == null) {
             return new ResponseEntity(HttpStatus.NOT_FOUND);
         }
+        if (meeting.getParticipants() != null && !meeting.getParticipants().isEmpty()) {
+            return new ResponseEntity<String>("Nie można usunąć", HttpStatus.BAD_REQUEST);
+        }
         meetingService.delete(meeting);
         return new ResponseEntity<Meeting>(meeting, HttpStatus.NO_CONTENT);
     }
@@ -59,8 +61,7 @@ public class MeetingRestController {
     @RequestMapping(value = "", method = RequestMethod.POST)
     public ResponseEntity<?> addMeeting(@RequestBody Meeting meeting) {
         if (meetingService.alreadyExist(meeting)) {
-            return new ResponseEntity<String>("Unable to add. A meeting with title " + meeting.getTitle() + " and date "
-                    + meeting.getDate() + " already exist.", HttpStatus.CONFLICT);
+            return new ResponseEntity<String>("Conflict", HttpStatus.CONFLICT);
         }
         meetingService.add(meeting);
         return new ResponseEntity<>(meeting, HttpStatus.CREATED);
@@ -72,8 +73,46 @@ public class MeetingRestController {
         if (currentMeeting == null) {
             return new ResponseEntity(HttpStatus.NOT_FOUND);
         }
-        meeting.setId(currentMeeting.getId());
-        meetingService.update(meeting);
+        currentMeeting.setTitle(meeting.getTitle());
+        currentMeeting.setDescription(meeting.getDescription());
+        meetingService.update(currentMeeting);
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @RequestMapping(value = "/{id}/participants", method = RequestMethod.POST)
+    public ResponseEntity<?> addParticipant(@PathVariable("id") long id, @RequestBody Map<String, String> json) {
+        Meeting meeting = meetingService.findById(id);
+        if (meeting == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        String login = json.get("login");
+        if (login == null) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+        Participant participant = participantService.findByLogin(login);
+        if (participant == null) {
+            participant = new Participant();
+            participant.setLogin(login);
+            participant.setPassword("");
+            participantService.add(participant);
+        }
+        meeting.addParticipant(participant);
+        meetingService.update(meeting);
+        return new ResponseEntity<>(meeting.getParticipants(), HttpStatus.OK);
+    }
+
+    @RequestMapping(value = "/{id}/participants/{login}", method = RequestMethod.DELETE)
+    public ResponseEntity<?> removeParticipant(@PathVariable("id") long id, @PathVariable("login") String login) {
+        Meeting meeting = meetingService.findById(id);
+        if (meeting == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        Participant participant = participantService.findByLogin(login);
+        if (participant == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        meeting.removeParticipant(participant);
+        meetingService.update(meeting);
+        return new ResponseEntity<>(meeting.getParticipants(), HttpStatus.OK);
     }
 }

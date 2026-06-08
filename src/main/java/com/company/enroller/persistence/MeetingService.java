@@ -25,16 +25,18 @@ public class MeetingService {
     }
 
     public Meeting findById(long id) {
-        return this.session.get(Meeting.class, id);
+        String hql = "SELECT DISTINCT meeting FROM Meeting as meeting LEFT JOIN FETCH meeting.participants WHERE meeting.id = :id";
+        Query query = this.session.createQuery(hql).setParameter("id", id);
+        return (Meeting) query.uniqueResult();
     }
 
     public Collection<Meeting> findMeetings(String title, String description, Participant participant, String sortMode) {
-        String hql = "FROM Meeting as meeting WHERE title LIKE :title AND description LIKE :description ";
+        String hql = "SELECT DISTINCT meeting FROM Meeting as meeting LEFT JOIN FETCH meeting.participants WHERE meeting.title LIKE :title AND meeting.description LIKE :description ";
         if (participant != null) {
-            hql += " AND :participant in elements(participants)";
+            hql += " AND :participant in elements(meeting.participants)";
         }
         if (sortMode.equals("title")) {
-            hql += " ORDER BY title";
+            hql += " ORDER BY meeting.title";
         }
         Query query = this.session.createQuery(hql);
         query.setParameter("title", "%" + title + "%").setParameter("description", "%" + description + "%");
@@ -67,7 +69,7 @@ public class MeetingService {
         Query query = this.session.createQuery(hql);
         Collection resultList = query.setParameter("title", meeting.getTitle()).setParameter("date", meeting.getDate())
                 .list();
-        return query.list().size() != 0;
+        return resultList.size() != 0;
     }
 
 }
